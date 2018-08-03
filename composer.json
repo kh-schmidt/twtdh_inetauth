@@ -1,0 +1,23 @@
+{
+    "name": "twtdh/twtdh-inetauth",
+    "type": "typo3-cms-extension",
+    "description": "Instead of fe login and fe access rights an authentification via internet replaces it - also acces rights for pages",
+    "authors": [],
+    "require": {
+        "typo3/cms-core": "^8.7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Twtdh\\TwtdhInetauth\\": "Classes"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Twtdh\\TwtdhInetauth\\Tests\\": "Tests"
+        }
+    },
+    "replace": {
+        "twtdh_inetauth": "self.version",
+        "typo3-ter/twtdh-inetauth": "self.version"
+    }
+}

@@ -1,0 +1,32 @@
+{
+    "modules": [],
+    "properties": {
+        "backendModules": [],
+        "description": "Instead of fe login and fe access rights an authentification via internet replaces it - also acces rights for pages",
+        "emConf": {
+            "category": "services",
+            "custom_category": "",
+            "dependsOn": "typo3 => 8.7.0-8.7.99\n",
+            "disableLocalization": true,
+            "disableVersioning": true,
+            "skipGenerateDocumentationTemplate": false,
+            "sourceLanguage": "en",
+            "state": "alpha",
+            "targetVersion": "8.7.0-8.7.99",
+            "version": "1.0.0"
+        },
+        "extensionKey": "twtdh_inetauth",
+        "name": "Internet Authentification",
+        "originalExtensionKey": "",
+        "originalVendorName": "",
+        "persons": [],
+        "plugins": [],
+        "vendorName": "Twtdh"
+    },
+    "wires": [],
+    "log": {
+        "last_modified": "2018-08-03 01:28",
+        "extension_builder_version": "8.7.0",
+        "be_user": " (2)"
+    }
+}
