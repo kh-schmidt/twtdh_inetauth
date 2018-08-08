@@ -139,6 +139,265 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Frontend\Authentication\Fron
         $this->lifetime = (int)$GLOBALS['TYPO3_CONF_VARS']['FE']['lifetime'];
     }
 
+  /**
+   * Checks if a submission of username and password is present or use other authentication by auth services
+   *
+   * @throws \RuntimeException
+   * @internal
+   */
+  public function checkAuthentication()
+  {
+    // No user for now - will be searched by service below
+    $tempuserArr = [];
+    $tempuser = false;
+    // User is not authenticated by default
+    $authenticated = false;
+    // User want to login with passed login data (name/password)
+    $activeLogin = false;
+    // Indicates if an active authentication failed (not auto login)
+    $this->loginFailure = false;
+    if ($this->writeDevLog) {
+      GeneralUtility::devLog('Login type: ' . $this->loginType, self::class);
+    }
+    // The info array provide additional information for auth services
+    $authInfo = $this->getAuthInfoArray();
+    // Get Login/Logout data submitted by a form or params
+    $loginData = $this->getLoginFormData();
+    if ($this->writeDevLog) {
+      GeneralUtility::devLog('Login data: ' . GeneralUtility::arrayToLogString($loginData), self::class);
+    }
+    // Active logout (eg. with "logout" button)
+    if ($loginData['status'] === 'logout') {
+      if ($this->writeStdLog) {
+        // $type,$action,$error,$details_nr,$details,$data,$tablename,$recuid,$recpid
+        $this->writelog(255, 2, 0, 2, 'User %s logged out', [$this->user['username']], '', 0, 0);
+      }
+      // Logout written to log
+      if ($this->writeDevLog) {
+        GeneralUtility::devLog('User logged out. Id: ' . $this->id, self::class, -1);
+      }
+      $this->logoff();
+    }
+    // Determine whether we need to skip session update.
+    // This is used mainly for checking session timeout in advance without refreshing the current session's timeout.
+    $skipSessionUpdate = (bool)GeneralUtility::_GP('skipSessionUpdate');
+    $haveSession = false;
+    $anonymousSession = false;
+    if (!$this->newSessionID) {
+      // Read user session
+      $authInfo['userSession'] = $this->fetchUserSession($skipSessionUpdate);
+      $haveSession = is_array($authInfo['userSession']);
+      if ($haveSession && !empty($authInfo['userSession']['ses_anonymous'])) {
+        $anonymousSession = true;
+      }
+    }
+
+    // Active login (eg. with login form).
+    if (!$haveSession && $loginData['status'] === 'login') {
+      $activeLogin = true;
+      if ($this->writeDevLog) {
+        GeneralUtility::devLog('Active login (eg. with login form)', self::class);
+      }
+      // check referrer for submitted login values
+      if ($this->formfield_status && $loginData['uident'] && $loginData['uname']) {
+        // Delete old user session if any
+        $this->logoff();
+      }
+      // Refuse login for _CLI users, if not processing a CLI request type
+      // (although we shouldn't be here in case of a CLI request type)
+      if (strtoupper(substr($loginData['uname'], 0, 5)) === '_CLI_' && !(TYPO3_REQUESTTYPE & TYPO3_REQUESTTYPE_CLI)) {
+        throw new \RuntimeException('TYPO3 Fatal Error: You have tried to login using a CLI user. Access prohibited!', 1270853931);
+      }
+    }
+
+    // Cause elevation of privilege, make sure regenerateSessionId is called later on
+    if ($anonymousSession && $loginData['status'] === 'login') {
+      $activeLogin = true;
+    }
+
+    if ($this->writeDevLog) {
+      if ($haveSession) {
+        GeneralUtility::devLog('User session found: ' . GeneralUtility::arrayToLogString($authInfo['userSession'], [$this->userid_column, $this->username_column]), self::class, 0);
+      } else {
+        GeneralUtility::devLog('No user session found.', self::class, 2);
+      }
+      if (is_array($this->svConfig['setup'] ?? false)) {
+        GeneralUtility::devLog('SV setup: ' . GeneralUtility::arrayToLogString($this->svConfig['setup']), self::class, 0);
+      }
+    }
+
+    // Fetch user if ...
+    if (
+      $activeLogin || !empty($this->svConfig['setup'][$this->loginType . '_alwaysFetchUser'])
+      || !$haveSession && !empty($this->svConfig['setup'][$this->loginType . '_fetchUserIfNoSession'])
+    ) {
+      // Use 'auth' service to find the user
+      // First found user will be used
+      $subType = 'getUser' . $this->loginType;
+      /** @var AuthenticationService $serviceObj */
+      foreach ($this->getAuthServices($subType, $loginData, $authInfo) as $serviceObj) {
+        if ($row = $serviceObj->getUser()) {
+          $tempuserArr[] = $row;
+          if ($this->writeDevLog) {
+            GeneralUtility::devLog('User found: ' . GeneralUtility::arrayToLogString($row, [$this->userid_column, $this->username_column]), self::class, 0);
+          }
+          // User found, just stop to search for more if not configured to go on
+          if (!$this->svConfig['setup'][$this->loginType . '_fetchAllUsers']) {
+            break;
+          }
+        }
+      }
+
+      if ($this->writeDevLog && $this->svConfig['setup'][$this->loginType . '_alwaysFetchUser']) {
+        GeneralUtility::devLog($this->loginType . '_alwaysFetchUser option is enabled', self::class);
+      }
+      if ($this->writeDevLog && empty($tempuserArr)) {
+        GeneralUtility::devLog('No user found by services', self::class);
+      }
+      if ($this->writeDevLog && !empty($tempuserArr)) {
+        GeneralUtility::devLog(count($tempuserArr) . ' user records found by services', self::class);
+      }
+    }
+
+    // If no new user was set we use the already found user session
+    if (empty($tempuserArr) && $haveSession && !$anonymousSession) {
+      $tempuserArr[] = $authInfo['userSession'];
+      $tempuser = $authInfo['userSession'];
+      // User is authenticated because we found a user session
+      $authenticated = true;
+      if ($this->writeDevLog) {
+        GeneralUtility::devLog('User session used: ' . GeneralUtility::arrayToLogString($authInfo['userSession'], [$this->userid_column, $this->username_column]), self::class);
+      }
+    }
+    // Re-auth user when 'auth'-service option is set
+    if (!empty($this->svConfig['setup'][$this->loginType . '_alwaysAuthUser'])) {
+      $authenticated = false;
+      if ($this->writeDevLog) {
+        GeneralUtility::devLog('alwaysAuthUser option is enabled', self::class);
+      }
+    }
+    // Authenticate the user if needed
+    if (!empty($tempuserArr) && !$authenticated) {
+      foreach ($tempuserArr as $tempuser) {
+        // Use 'auth' service to authenticate the user
+        // If one service returns FALSE then authentication failed
+        // a service might return 100 which means there's no reason to stop but the user can't be authenticated by that service
+        if ($this->writeDevLog) {
+          GeneralUtility::devLog('Auth user: ' . GeneralUtility::arrayToLogString($tempuser), self::class);
+        }
+        $subType = 'authUser' . $this->loginType;
+
+        foreach ($this->getAuthServices($subType, $loginData, $authInfo) as $serviceObj) {
+          if (($ret = $serviceObj->authUser($tempuser)) > 0) {
+            // If the service returns >=200 then no more checking is needed - useful for IP checking without password
+            if ((int)$ret >= 200) {
+              $authenticated = true;
+              break;
+            }
+            if ((int)$ret >= 100) {
+            } else {
+              $authenticated = true;
+            }
+          } else {
+            $authenticated = false;
+            break;
+          }
+        }
+
+        if ($authenticated) {
+          // Leave foreach() because a user is authenticated
+          break;
+        }
+      }
+    }
+
+    // If user is authenticated a valid user is in $tempuser
+    if ($authenticated) {
+      // Reset failure flag
+      $this->loginFailure = false;
+      // Insert session record if needed:
+      if (!$haveSession || $anonymousSession || $tempuser['ses_id'] != $this->id && $tempuser['uid'] != $authInfo['userSession']['ses_userid']) {
+        $sessionData = $this->createUserSession($tempuser);
+
+        // Preserve session data on login
+        if ($anonymousSession) {
+          $sessionData = $this->getSessionBackend()->update(
+            $this->id,
+            ['ses_data' => $authInfo['userSession']['ses_data']]
+          );
+        }
+        $this->user = array_merge(
+          $tempuser,
+          $sessionData
+        );
+        // The login session is started.
+        $this->loginSessionStarted = true;
+        if ($this->writeDevLog && is_array($this->user)) {
+          GeneralUtility::devLog('User session finally read: ' . GeneralUtility::arrayToLogString($this->user, [$this->userid_column, $this->username_column]), self::class, -1);
+        }
+      } elseif ($haveSession) {
+        // if we come here the current session is for sure not anonymous as this is a pre-condition for $authenticated = true
+        $this->user = $authInfo['userSession'];
+
+      }
+
+      if ($activeLogin && !$this->newSessionID) {
+        $this->regenerateSessionId();
+      }
+
+      // User logged in - write that to the log!
+      if ($this->writeStdLog && $activeLogin) {
+        $this->writelog(255, 1, 0, 1, 'User %s logged in from %s (%s)', [$tempuser[$this->username_column], GeneralUtility::getIndpEnv('REMOTE_ADDR'), GeneralUtility::getIndpEnv('REMOTE_HOST')], '', '', '');
+      }
+      if ($this->writeDevLog && $activeLogin) {
+        GeneralUtility::devLog('User ' . $tempuser[$this->username_column] . ' logged in from ' . GeneralUtility::getIndpEnv('REMOTE_ADDR') . ' (' . GeneralUtility::getIndpEnv('REMOTE_HOST') . ')', self::class, -1);
+      }
+      if ($this->writeDevLog && !$activeLogin) {
+        GeneralUtility::devLog('User ' . $tempuser[$this->username_column] . ' authenticated from ' . GeneralUtility::getIndpEnv('REMOTE_ADDR') . ' (' . GeneralUtility::getIndpEnv('REMOTE_HOST') . ')', self::class, -1);
+      }
+    } else {
+      // User was not authenticated, so we should reuse the existing anonymous session
+      if ($anonymousSession) {
+        $this->user = $authInfo['userSession'];
+      }
+
+      // Mark the current login attempt as failed
+      if ($activeLogin || !empty($tempuserArr)) {
+        $this->loginFailure = true;
+        if ($this->writeDevLog && empty($tempuserArr) && $activeLogin) {
+          GeneralUtility::devLog('Login failed: ' . GeneralUtility::arrayToLogString($loginData), self::class, 2);
+        }
+        if ($this->writeDevLog && !empty($tempuserArr)) {
+          GeneralUtility::devLog('Login failed: ' . GeneralUtility::arrayToLogString($tempuser, [$this->userid_column, $this->username_column]), self::class, 2);
+        }
+      }
+    }
+
+    // If there were a login failure, check to see if a warning email should be sent:
+    if ($this->loginFailure && $activeLogin) {
+      if ($this->writeDevLog) {
+        GeneralUtility::devLog('Call checkLogFailures: ' . GeneralUtility::arrayToLogString(['warningEmail' => $this->warningEmail, 'warningPeriod' => $this->warningPeriod, 'warningMax' => $this->warningMax]), self::class, -1);
+      }
+
+      // Hook to implement login failure tracking methods
+      if (
+        !empty($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_userauth.php']['postLoginFailureProcessing'])
+        && is_array($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_userauth.php']['postLoginFailureProcessing'])
+      ) {
+        $_params = [];
+        foreach ($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_userauth.php']['postLoginFailureProcessing'] as $_funcRef) {
+          GeneralUtility::callUserFunction($_funcRef, $_params, $this);
+        }
+      } else {
+        // If no hook is implemented, wait for 5 seconds
+        sleep(5);
+      }
+
+      $this->checkLogFailures($this->warningEmail, $this->warningPeriod, $this->warningMax);
+    }
+
+  }
+
     /**
      * Returns the configured cookie name
      *
@@ -248,15 +507,40 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Frontend\Authentication\Fron
      * @param array $tempuser User data array
      * @return array The session data for the newly created session.
      */
-    public function createUserSession($tempuser)
-    {
-        // At this point we do not know if we need to set a session or a permanent cookie
-        // So we force the cookie to be set after authentication took place, which will
-        // then call setSessionCookie(), which will set a cookie with correct settings.
-        $this->dontSetCookie = false;
-        return parent::createUserSession($tempuser);
+//    public function createUserSession($tempuser)
+//    {
+//        // At this point we do not know if we need to set a session or a permanent cookie
+//        // So we force the cookie to be set after authentication took place, which will
+//        // then call setSessionCookie(), which will set a cookie with correct settings.
+//        $this->dontSetCookie = false;
+//        return parent::createUserSession($tempuser);
+//    }
+  /**
+   * Creates a user session record and returns its values.
+   *
+   * @param array $tempuser User data array
+   *
+   * @return array The session data for the newly created session.
+   */
+  public function createUserSession($tempuser)
+  {
+    // At this point we do not know if we need to set a session or a permanent cookie
+    // So we force the cookie to be set after authentication took place, which will
+    // then call setSessionCookie(), which will set a cookie with correct settings.
+    $this->dontSetCookie = true;
+    if ($this->writeDevLog) {
+      GeneralUtility::devLog('Create session ses_id = ' . $this->id, self::class);
     }
+    // Delete any session entry first
+    $this->getSessionBackend()->remove($this->id);
+    // Re-create session entry
+    $sessionRecord = $this->getNewSessionRecord($tempuser);
+    $sessionRecord = $this->getSessionBackend()->set($this->id, $sessionRecord);
 
+    // Updating lastLogin_column carrying information about last login.
+    //$this->updateLoginTimestamp($tempuser[$this->userid_column]);
+    return $sessionRecord;
+  }
     /**
      * Will select all fe_groups records that the current fe_user is member of
      * and which groups are also allowed in the current domain.
@@ -636,4 +920,16 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Frontend\Authentication\Fron
         $this->user = null;
         $this->loginHidden = true;
     }
+
+
+  /**
+   * Updates the last login column in the user with the given id
+   *
+   * @param int $userId
+   */
+  protected function updateLoginTimestamp(int $userId)
+  {
+
+  }
+
 }
