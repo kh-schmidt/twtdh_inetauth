@@ -4,7 +4,7 @@
     "description": "Instead of fe login and fe access rights an authentification via internet replaces it - also acces rights for pages",
     "authors": [],
     "require": {
-        "typo3/cms-core": "^8.7.0"
+        "typo3/cms-core": "^8.7 || ^9"
     },
     "autoload": {
         "psr-4": {
