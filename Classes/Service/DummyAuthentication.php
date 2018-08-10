@@ -7,7 +7,7 @@ namespace Twtdh\TwtdhInetauth\Service;
  *  (c) 2018 Karlheinz Schmidt <welt@arcor.de>
  *  All rights reserved
  *
- *  The TYPO3 Extension ap_docchecklogin is licensed under the MIT License
+ *  The TYPO3 Extension is licensed under the MIT License
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -78,15 +78,15 @@ class DummyAuthentication implements INetAuthenticationInterface{
   protected static $userGroups = [
     1 => [
       'uid' => 1,
-      'title' => 'user_a'
+      'title' => 'gruppe_a'
     ],
     2 => [
       'uid' => 2,
-      'title' => 'user_b'
+      'title' => 'gruppe_b'
     ],
     3 => [
       'uid' => 3,
-      'title' => 'user_c'
+      'title' => 'gruppe_c'
     ],
   ] ;
   /**
@@ -103,7 +103,6 @@ class DummyAuthentication implements INetAuthenticationInterface{
     } else {
       return null;
     }
-
   }
 
   /**
@@ -118,6 +117,7 @@ class DummyAuthentication implements INetAuthenticationInterface{
       /** @var FrontendUser $feUser **/
       $feUser->setUsername(self::$users[$token]['username']);
       $feUser->setFirstName(self::$users[$token]['firstname']);
+      $feUser->setPassword(self::$users[$token]['password']);
       return $feUser;
     } else {
       return null;
@@ -148,15 +148,23 @@ class DummyAuthentication implements INetAuthenticationInterface{
     }
   }
 
-
   /**
-   * checks if the user (token) has access to a page with the given user groups
+   * get all groups of the inet service
    *
-   * @return array|null
+   * @return array
    */
   public function getAllUserGroups() :? array {
-    return self::$userGroups;
+    $result = [];
+    foreach (self::$userGroups as $group) {
+      $feGroup = GeneralUtility::makeInstance(FrontendUserGroup::class);
+      /** @var FrontendUserGroup $feGroup **/
+      $feGroup->setTitle($group['title']);
+      $feGroup->_setProperty('uid', $group['uid']);
+      $result[] = $feGroup;
+    }
+    return $result;
   }
+
   /**
    * checks if the user (token) has access to a page with the given user groups
    *

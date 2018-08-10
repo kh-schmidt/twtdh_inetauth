@@ -1,13 +1,14 @@
 <?php
 
-namespace Twtdh\TwtdhInetauth\Service;
+namespace Twtdh\TwtdhInetauth\Userfunc;
+
 /***************************************************************
  *  Copyright notice
  *
  *  (c) 2018 Karlheinz Schmidt <welt@arcor.de>
  *  All rights reserved
  *
- *  The TYPO3 Extension is licensed under the MIT License
+ *  The TYPO3 Extension ap_docchecklogin is licensed under the MIT License
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -29,64 +30,35 @@ namespace Twtdh\TwtdhInetauth\Service;
  *
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
-use TYPO3\CMS\Extbase\Domain\Model\FrontendUser;
+
+use Twtdh\TwtdhInetauth\Service\INetAuthenticationService;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Domain\Model\FrontendUserGroup;
 
 /**
- * Service 'AuthenticationService' for the 'login' extension.
+ * Userfunction for TCA to fill fe groups fields.
  *
  * @author Karlheinz Schmidt <welt@arcor.de>
  */
 
-interface INetAuthenticationInterface {
-
-
+class FeGroupsInetService {
   /**
-   * Authentication of login data
+   * Manipulate items array
+   * uids will be from -1000 on
    *
-   * @param string $username
-   * @param string $password
-   * @return string|null token for user
+   * @param array $config
+   * @return array
    */
-  public function authLoginData(string $username, string $password) :? string;
-
-  /**
-   * Fetches Personal Data
-   *
-   * @param string $token
-   * @return FrontendUser|null
-   */
-  public function getPersonalData(string $token) :? FrontendUser;
-
-  /**
-   * Loggs out to delete usersession remote
-   *
-   * @param array $user
-   * @return bool
-   */
-  public function logout(array $user) : bool;
-
-  /**
-   * checks if token is still valid
-   *
-   * @param array $user
-   * @return bool
-   */
-  public function isLoggedIn(array $user) : bool;
-
-  /**
-   * get user groups
-   *
-   * @return array with \TYPO3\CMS\Extbase\Domain\Model\FrontendUserGroup
-   */
-  public function getAllUserGroups() :? array;
-
-  /**
-   * checks if the user (token) has access to a page with the given user groups
-   *
-   * @param array $user
-   * @param \TYPO3\CMS\Extbase\Domain\Model\FrontendUserGroup[] ...$userGroups
-   * @return bool
-   */
-  public function hasAccessForGroups(array $user, FrontendUserGroup ...$userGroups) : bool;
+  public function getAllGroups(array $config) {
+    $itemList = $config['items'];
+    /** @var INetAuthenticationService $iNetAuthenticationService */
+    $iNetAuthenticationService = GeneralUtility::makeInstance(INetAuthenticationService::class);
+    $feGroups = $iNetAuthenticationService->getAllUserGroups();
+    /** @var FrontendUserGroup $group */
+    foreach ($feGroups as $group) {
+      $itemList[] = [$group->getTitle(), -1000 - (int) $group->getUid()];
+    }
+    $config['items'] = $itemList;
+    return $config;
+  }
 }

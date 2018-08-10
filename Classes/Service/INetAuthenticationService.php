@@ -7,7 +7,7 @@ namespace Twtdh\TwtdhInetauth\Service;
  *  (c) 2018 Karlheinz Schmidt <welt@arcor.de>
  *  All rights reserved
  *
- *  The TYPO3 Extension ap_docchecklogin is licensed under the MIT License
+ *  The TYPO3 Extension is licensed under the MIT License
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@ namespace Twtdh\TwtdhInetauth\Service;
  *
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
+use Twtdh\TwtdhInetauth\Frontend\Authentication\FrontendUserAuthentication;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -68,7 +69,13 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
     $password = $this->login["uident"];
     $user = null;
     $token = $this->iNetAuthenticationInterface->authLoginData($userName, $password);
-    if (!empty($token)) {
+
+    // if login data was send and token could be fetched
+    if (!empty($token) && !empty($userName) && !empty($password)) {
+      // store token in session
+
+
+      // get user
       $feUser = $this->iNetAuthenticationInterface->getPersonalData($token);
       $user = [];
       #$user['uid'] = $feUser->getId();
@@ -76,8 +83,33 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
       $user['firstname'] = $feUser->getFirstName();
       $user['lastname'] = $feUser->getLastName();
       $user['email'] = $feUser->getEmail();
+      $user['password'] = $feUser->getPassword();
+
       // token is remebered in user session
       $user['inetauth_token'] = $token;
+      // TODO change this with a typo3 session storing for this level
+      session_start();
+      $_SESSION['inetauth_token'] = $token;
+//      /** @var FrontendUserAuthentication $frontendUserAuthentication */
+//      $frontendUserAuthentication = GeneralUtility::makeInstance(FrontendUserAuthentication::class);
+//      $frontendUserAuthentication->setAndSaveSessionData('tokenfromInet', $token);
+    } else {
+      /** @var FrontendUserAuthentication $frontendUserAuthentication */
+//      $frontendUserAuthentication = GeneralUtility::makeInstance(FrontendUserAuthentication::class);
+//      $tokenfromInet = $frontendUserAuthentication->getSessionData('tokenfromInet');
+      session_start();
+      $tokenfromInet = $_SESSION['inetauth_token'];
+      if (!empty($tokenfromInet)) {
+        // get user
+        $feUser = $this->iNetAuthenticationInterface->getPersonalData($tokenfromInet);
+        $user = [];
+        #$user['uid'] = $feUser->getId();
+        $user['username'] = $feUser->getUsername();
+        $user['firstname'] = $feUser->getFirstName();
+        $user['lastname'] = $feUser->getLastName();
+        $user['email'] = $feUser->getEmail();
+        $user['password'] = $feUser->getPassword();
+      }
     }
 		return $user;
 	}
@@ -113,15 +145,7 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
    * @return array
    */
 	public function getGroups(?array $user, array $groupDataArr) {
-	  /*
 
-	   */
-	  // hack for user from table
-var_dump($GLOBALS['TSFE']->fe_user);
-    #if ($this->iNetAuthenticationInterface->isLoggedIn($user))
-    #if (!empty($GLOBALS['TSFE']->fe_user)) {
-    #  $GLOBALS['TSFE']->fe_user->user = ['uid' => 1];
-    #}
 
 
     $userGroupArray = [
@@ -133,6 +157,15 @@ var_dump($GLOBALS['TSFE']->fe_user);
         ]
     ];
 	  return $userGroupArray;
+  }
+
+  /**
+   * Fetch all available groups of the inet service
+   *
+   * @return array
+   */
+  public function getAllUserGroups() {
+    return $this->iNetAuthenticationInterface->getAllUserGroups();
   }
 
 }
