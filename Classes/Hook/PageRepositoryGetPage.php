@@ -39,6 +39,7 @@ class PageRepositoryGetPage implements \TYPO3\CMS\Frontend\Page\PageRepositoryGe
     if ($iNetAuthenticationService->hasAccessForGroups()) {
       $parentObject->where_groupAccess = $parentObject->where_groupAccess . ' OR 1=1';
       var_dump($parentObject->where_groupAccess);
+
     }
   }
 
