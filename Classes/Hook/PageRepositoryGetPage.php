@@ -15,8 +15,9 @@ namespace Twtdh\TwtdhInetauth\Hook;
  */
 
 
+use Twtdh\TwtdhInetauth\Service\INetAuthenticationService;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Frontend\Page\PageRepository;
-use TYPO3\CMS\Frontend\Page\PageRepositoryGetPageHookInterface;
 
 /**
  *  Get Page with Permission over the Internet
@@ -32,14 +33,13 @@ class PageRepositoryGetPage implements \TYPO3\CMS\Frontend\Page\PageRepositoryGe
    */
   public function getPage_preProcess(&$uid, &$disableGroupAccessCheck, PageRepository $parentObject)
   {
-    #var_dump($parentObject->where_groupAccess);
-//    $GLOBALS['TSFE']->fe_user->checkPid = '';
-//    $info = $GLOBALS['TSFE']->fe_user->getAuthInfoArray();
-//    $user = $GLOBALS['TSFE']->fe_user->fetchUserRecord($info['db_user'], $username);
-//    $GLOBALS['TSFE']->fe_user->createUserSession($user);
-//    //var_dump($user);
-//    $parentObject->where_groupAccess = $parentObject->where_groupAccess . '';
-    //var_dump($parentObject->where_groupAccess);
+// var_dump($GLOBALS['TSFE']->fe_user);
+    /** @var INetAuthenticationService $iNetAuthenticationService */
+    $iNetAuthenticationService = GeneralUtility::makeInstance(INetAuthenticationService::class);
+    if ($iNetAuthenticationService->hasAccessForGroups()) {
+      $parentObject->where_groupAccess = $parentObject->where_groupAccess . ' OR 1=1';
+      var_dump($parentObject->where_groupAccess);
+    }
   }
 
 }

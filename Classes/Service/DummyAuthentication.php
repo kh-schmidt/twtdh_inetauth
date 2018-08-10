@@ -166,17 +166,19 @@ class DummyAuthentication implements INetAuthenticationInterface{
   }
 
   /**
-   * checks if the user (token) has access to a page with the given user groups
+   * checks if the username has access to a page with the given user groups
    *
    * @param array $user
    * @param \TYPO3\CMS\Extbase\Domain\Model\FrontendUserGroup[] ...$userGroups
    * @return bool
    */
-  public function hasAccessForGroups(array $user, FrontendUserGroup ...$userGroups) : bool {
-    $usersUserGroups = explode(',', $user['user-goups']);
-    foreach ($userGroups as $userGroup) {
-      if (in_array($userGroup->getUid(), $usersUserGroups)) {
-        return true;
+  public function hasAccessForGroups(string $username, FrontendUserGroup ...$userGroups) : bool {
+    if (in_array($username, self::$users)) {
+      $usersUserGroups = explode(',', $user['user-goups']);
+      foreach ($userGroups as $userGroup) {
+        if (in_array($userGroup->getUid(), $usersUserGroups)) {
+          return true;
+        }
       }
     }
     return false;

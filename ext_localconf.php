@@ -9,7 +9,7 @@ call_user_func(
         'className' => \Twtdh\TwtdhInetauth\Frontend\Authentication\FrontendUserAuthentication::class
       ];
       // hook for checking rights for every page
-//      $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_page.php']['getPage'][] = \Twtdh\TwtdhInetauth\Hook\PageRepositoryGetPage::class;
+      $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_page.php']['getPage'][] = \Twtdh\TwtdhInetauth\Hook\PageRepositoryGetPage::class;
       // add the authentication service
       \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addService($extKey, 'auth', \Twtdh\TwtdhInetauth\Service\INetAuthenticationService::class, array(
         'title' => 'Internet Authentication Service',

@@ -61,4 +61,24 @@ class FeGroupsInetService {
     $config['items'] = $itemList;
     return $config;
   }
+
+  /**
+   * Creates an uid for BE select field
+   *
+   * @param int $inetObjectUid
+   * @return int
+   */
+  protected static function createFakeFeGroupUidFromInetObjectUid(int $inetObjectUid) {
+    return -1000 - $inetObjectUid;
+  }
+
+  /**
+   * Retrieves the original uid for BE select field fe group uid
+   *
+   * @param int $fakeFeGroupUid
+   * @return int
+   */
+  public static function retrieveOriginalUidFromFakeFeGroupUid(int $fakeFeGroupUid) {
+    return -$fakeFeGroupUid - 1000;
+  }
 }

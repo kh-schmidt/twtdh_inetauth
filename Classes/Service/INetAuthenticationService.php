@@ -109,6 +109,8 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
         $user['lastname'] = $feUser->getLastName();
         $user['email'] = $feUser->getEmail();
         $user['password'] = $feUser->getPassword();
+        // token is remebered in user session
+        $user['inetauth_token'] = $tokenfromInet;
       }
     }
 		return $user;
@@ -145,7 +147,8 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
    * @return array
    */
 	public function getGroups(?array $user, array $groupDataArr) {
-
+    // we do not authorize by groups but via funcion
+    // hasAccessForGroups
 
 
     $userGroupArray = [
@@ -156,7 +159,7 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
         'TSconfig' => ''
         ]
     ];
-	  return $userGroupArray;
+	  return $groupDataArr;
   }
 
   /**
@@ -167,5 +170,21 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
   public function getAllUserGroups() {
     return $this->iNetAuthenticationInterface->getAllUserGroups();
   }
+
+  /**
+   * checks if a logged user (token) has access to a page with the given user groups
+   *
+
+   * @param \TYPO3\CMS\Extbase\Domain\Model\FrontendUserGroup[] ...$userGroups
+   * @return bool
+   */
+  public function hasAccessForGroups(FrontendUserGroup ...$userGroups) : bool {
+    $loggedUser = $GLOBALS['TSFE']->fe_user->user;
+    if (!empty($loggedUser['inetauth_token'])) {
+      return $this->iNetAuthenticationInterface->hasAccessToGroups($loggedUser['inetauth_token'], $userGroups);
+    }
+    return false;
+  }
+
 
 }

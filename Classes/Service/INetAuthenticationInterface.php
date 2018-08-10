@@ -88,5 +88,5 @@ interface INetAuthenticationInterface {
    * @param \TYPO3\CMS\Extbase\Domain\Model\FrontendUserGroup[] ...$userGroups
    * @return bool
    */
-  public function hasAccessForGroups(array $user, FrontendUserGroup ...$userGroups) : bool;
+  public function hasAccessToGroups(string $username, FrontendUserGroup ...$userGroups) : bool;
 }
