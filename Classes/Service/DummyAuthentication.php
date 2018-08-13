@@ -127,21 +127,21 @@ class DummyAuthentication implements INetAuthenticationInterface{
   /**
    * Loggs out to delete usersession remote
    *
-   * @param array $user
+   * @param string $token
    * @return bool
    */
-  public function logout(array $user) : bool {
-
+  public function logout(string $token) : bool {
+    return true;
   }
 
   /**
    * checks if token is still valid
    *
-   * @param array $user
+   * @param string $token
    * @return bool
    */
-  public function isLoggedIn(array $user) : bool {
-    if (isset(self::$users[$user['username']]['inetauth_token'])) {
+  public function isLoggedIn(string $token) : bool {
+    if (isset(self::$users[$token])) {
       return true;
     } else {
       return false;
@@ -166,21 +166,20 @@ class DummyAuthentication implements INetAuthenticationInterface{
   }
 
   /**
-   * checks if the username has access to a page with the given user groups
+   * checks if the user (token) has access to a page with the given user groups
    *
-   * @param array $user
-   * @param \TYPO3\CMS\Extbase\Domain\Model\FrontendUserGroup[] ...$userGroups
+   * @param string $token
+   * @param int ...$userGroups
    * @return bool
    */
-  public function hasAccessForGroups(string $username, FrontendUserGroup ...$userGroups) : bool {
-    if (in_array($username, self::$users)) {
-      $usersUserGroups = explode(',', $user['user-goups']);
-      foreach ($userGroups as $userGroup) {
-        if (in_array($userGroup->getUid(), $usersUserGroups)) {
-          return true;
-        }
-      }
+  public function hasAccessToGroups(string $token, int ...$userGroups) : bool {
+    // if we find the user -> check rights
+    if (isset(self::$users[$token])) {
+      // if the uid of user of token is among the requested groups - > allow
+      if (in_array(self::$users[$token]['uid'], $userGroups))
+      return true;
     }
+    // otherwise false
     return false;
   }
 }

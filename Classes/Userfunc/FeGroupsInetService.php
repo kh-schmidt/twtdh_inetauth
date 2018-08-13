@@ -76,9 +76,13 @@ class FeGroupsInetService {
    * Retrieves the original uid for BE select field fe group uid
    *
    * @param int $fakeFeGroupUid
-   * @return int
+   * @return int|null null if not smaller than -1000
    */
   public static function retrieveOriginalUidFromFakeFeGroupUid(int $fakeFeGroupUid) {
-    return -$fakeFeGroupUid - 1000;
+    if ($fakeFeGroupUid < -1000) {
+      return -$fakeFeGroupUid - 1000;
+    } else {
+      return null;
+    }
   }
 }

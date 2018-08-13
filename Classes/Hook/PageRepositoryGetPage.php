@@ -16,6 +16,7 @@ namespace Twtdh\TwtdhInetauth\Hook;
 
 
 use Twtdh\TwtdhInetauth\Service\INetAuthenticationService;
+use Twtdh\TwtdhInetauth\Userfunc\FeGroupsInetService;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Frontend\Page\PageRepository;
 
@@ -33,13 +34,22 @@ class PageRepositoryGetPage implements \TYPO3\CMS\Frontend\Page\PageRepositoryGe
    */
   public function getPage_preProcess(&$uid, &$disableGroupAccessCheck, PageRepository $parentObject)
   {
-// var_dump($GLOBALS['TSFE']->fe_user);
-    /** @var INetAuthenticationService $iNetAuthenticationService */
-    $iNetAuthenticationService = GeneralUtility::makeInstance(INetAuthenticationService::class);
-    if ($iNetAuthenticationService->hasAccessForGroups()) {
-      $parentObject->where_groupAccess = $parentObject->where_groupAccess . ' OR 1=1';
-      var_dump($parentObject->where_groupAccess);
-
+    // fetch raw record ($parentObject->getPage() is too heavy)
+    $pageArray = $parentObject->getRawRecord('pages', $uid);
+    $feGroups = explode(',', $pageArray['fe_group']);
+    $filteredFeGroups = [];
+    foreach ($feGroups as $group) {
+      if ($groupUid = FeGroupsInetService::retrieveOriginalUidFromFakeFeGroupUid((int)$group)) {
+        $filteredFeGroups[] = $groupUid;
+      }
+    }
+    // check if service groups are set
+    if (!empty($filteredFeGroups)) {
+      /** @var INetAuthenticationService $iNetAuthenticationService */
+      $iNetAuthenticationService = GeneralUtility::makeInstance(INetAuthenticationService::class);
+      if ($iNetAuthenticationService->hasAccessToGroups(...$filteredFeGroups)) {
+        $parentObject->where_groupAccess = $parentObject->where_groupAccess . ' OR 1=1';
+      }
     }
   }
 

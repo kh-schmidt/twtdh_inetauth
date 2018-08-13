@@ -61,18 +61,18 @@ interface INetAuthenticationInterface {
   /**
    * Loggs out to delete usersession remote
    *
-   * @param array $user
+   * @param string $token
    * @return bool
    */
-  public function logout(array $user) : bool;
+  public function logout(string $token) : bool;
 
   /**
    * checks if token is still valid
    *
-   * @param array $user
+   * @param string $token
    * @return bool
    */
-  public function isLoggedIn(array $user) : bool;
+  public function isLoggedIn(string $token) : bool;
 
   /**
    * get user groups
@@ -84,9 +84,9 @@ interface INetAuthenticationInterface {
   /**
    * checks if the user (token) has access to a page with the given user groups
    *
-   * @param array $user
-   * @param \TYPO3\CMS\Extbase\Domain\Model\FrontendUserGroup[] ...$userGroups
+   * @param string $token
+   * @param int ...$userGroups
    * @return bool
    */
-  public function hasAccessToGroups(string $username, FrontendUserGroup ...$userGroups) : bool;
+  public function hasAccessToGroups(string $token, int ...$userGroups) : bool;
 }

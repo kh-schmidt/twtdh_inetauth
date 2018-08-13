@@ -31,6 +31,8 @@ namespace Twtdh\TwtdhInetauth\Service;
  ***************************************************************/
 use Twtdh\TwtdhInetauth\Frontend\Authentication\FrontendUserAuthentication;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Extbase\Configuration\ConfigurationManager;
+use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 
 /**
  * Service 'AuthenticationService' for the 'login' extension.
@@ -46,6 +48,11 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
    * @inject
    */
   protected $iNetAuthenticationInterface;
+  /**
+   * @var array
+   */
+  protected $settings = [];
+
 
   /**
    * INetAuthenticationService constructor.
@@ -90,6 +97,7 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
       // TODO change this with a typo3 session storing for this level
       session_start();
       $_SESSION['inetauth_token'] = $token;
+
 //      /** @var FrontendUserAuthentication $frontendUserAuthentication */
 //      $frontendUserAuthentication = GeneralUtility::makeInstance(FrontendUserAuthentication::class);
 //      $frontendUserAuthentication->setAndSaveSessionData('tokenfromInet', $token);
@@ -124,19 +132,16 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
 	 * @return	boolean|200|100
 	 */
 	public function authUser(?array $user) {
-
 		// return values:
 		// 200 - authenticated and no more checking needed - useful for IP checking without password
 		// 100 - Just go on. User is not authenticated but there's still no reason to stop.
 		// false - this service was the right one to authenticate the user but it failed
 		// true - this service was able to authenticate the user
-
-		// check token
-    $this->iNetAuthenticationInterface->isLoggedIn($user);
-		// cool, some auth method thought it's fine. Quickly configure the redirect feature.
-    $ok = 200;
-
-		return $ok;
+    // if user is logged in and inetauth_token is set, we check rights
+    if (!empty($user['inetauth_token'])) {
+      return $this->iNetAuthenticationInterface->isLoggedIn($user['inetauth_token']);
+    }
+    return '200';
 	}
 
   /**
@@ -147,8 +152,7 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
    * @return array
    */
 	public function getGroups(?array $user, array $groupDataArr) {
-    // we do not authorize by groups but via funcion
-    // hasAccessForGroups
+
 
 
     $userGroupArray = [
@@ -159,7 +163,7 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
         'TSconfig' => ''
         ]
     ];
-	  return $groupDataArr;
+	  return $userGroupArray;
   }
 
   /**
@@ -174,17 +178,37 @@ class INetAuthenticationService extends \TYPO3\CMS\Sv\AbstractAuthenticationServ
   /**
    * checks if a logged user (token) has access to a page with the given user groups
    *
-
-   * @param \TYPO3\CMS\Extbase\Domain\Model\FrontendUserGroup[] ...$userGroups
+   * @param int ...$userGroups
    * @return bool
    */
-  public function hasAccessForGroups(FrontendUserGroup ...$userGroups) : bool {
-    $loggedUser = $GLOBALS['TSFE']->fe_user->user;
+  public function hasAccessToGroups(int ...$userGroups) : bool {
+    // if user is logged in and inetauth_token is set, we check rights
+    $loggedUser = self::getLoggedFeUser();
     if (!empty($loggedUser['inetauth_token'])) {
-      return $this->iNetAuthenticationInterface->hasAccessToGroups($loggedUser['inetauth_token'], $userGroups);
+      return $this->iNetAuthenticationInterface->hasAccessToGroups($loggedUser['inetauth_token'], ...$userGroups);
     }
     return false;
   }
 
+  /**
+   * Returns the fe user if looged in
+   *
+   * @return array
+   */
+  public static function getLoggedFeUser() {
+    return $GLOBALS['TSFE']->fe_user->user;
+  }
 
+  /**
+   * Logs out
+   *
+   * @return bool
+   */
+  public function logOut() {
+    $loggedUser = self::getLoggedFeUser();
+    if (!empty($loggedUser['inetauth_token'])) {
+      return $this->iNetAuthenticationInterface->logout($loggedUser['inetauth_token']);
+    }
+    return false;
+  }
 }

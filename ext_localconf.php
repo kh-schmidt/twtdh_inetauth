@@ -23,6 +23,10 @@ call_user_func(
         'className' => \Twtdh\TwtdhInetauth\Service\INetAuthenticationService::class
       ));
 
+      // logout hook to delete token and logout via interface
+      $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['felogin']['postProcContent'][] = \Twtdh\TwtdhInetauth\Hook\FeLoginLogoutConfirmed::class . '->logoutFromINetAuthenticationService';
+
+
       $GLOBALS['TYPO3_CONF_VARS']['SVCONF']['auth']['setup']['FE_fetchUserIfNoSession'] = true;
 
       $GLOBALS['TYPO3_CONF_VARS']['SVCONF']['auth']['setup']['FE_alwaysFetchUser'] = true;
